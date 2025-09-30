@@ -96,12 +96,23 @@ function parseTerm(termStr, variable) {
         coeff = parseInt(coeffPart);
     }
     
-    // Parse exponent
+    // Parse exponent - FIXED: Handle negative exponents
     let exp;
     if (expPart === '') {
         exp = 1;
     } else if (expPart[0] === '^') {
+        // Use parseInt directly which handles negative numbers
         exp = parseInt(expPart.slice(1));
+        // If parsing fails (returns NaN), try to handle the negative case
+        if (isNaN(exp)) {
+            // Handle cases like x^-2
+            const expMatch = expPart.match(/\^(-?\d+)/);
+            if (expMatch) {
+                exp = parseInt(expMatch[1]);
+            } else {
+                exp = 1;
+            }
+        }
     } else {
         exp = 1;
     }
@@ -137,7 +148,13 @@ function formatResult(terms, variable) {
         
         // Handle variable and exponent
         if (term.exp !== 0) {
-            part += variable;
+            // If part is empty (coefficient was ±1) or has just a minus sign
+            if (part === '' || part === '-') {
+                part += variable;
+            } else {
+                part += variable;
+            }
+            
             if (term.exp !== 1) {
                 part += '^' + term.exp;
             }
@@ -154,7 +171,8 @@ function formatResult(terms, variable) {
     return parts.join('');
 }
 
-// Test cases
-console.log(PolynomialExpansion("(1x)(2x^-2+1)"));    // Should be: "x+2x^-1"
+// Test the specific problematic case
+console.log("Testing (1x)(2x^-2+1):");
+console.log(PolynomialExpansion("(1x)(2x^-2+1)"));    // Should be: "x+2x^-1"    // Should be: "x+2x^-1"
 console.log(PolynomialExpansion("(-1x^3)(3x^3+2)"));  // Should be: "-3x^6-2x^3"
 console.log(PolynomialExpansion("(2x^2+4)(6x^3+3)")); // Should be: "12x^5+24x^3+6x^2+12"
