@@ -19,22 +19,13 @@ function PolynomialExpansion(str) {
             // Multiply coefficients
             const coeff = term1.coeff * term2.coeff;
             
-            // Handle exponents
-            let exp;
-            if (term1.hasVar && term2.hasVar) {
-                exp = term1.exp + term2.exp;
-            } else if (term1.hasVar) {
-                exp = term1.exp;
-            } else if (term2.hasVar) {
-                exp = term2.exp;
-            } else {
-                exp = 0;
-            }
+            // Handle exponents - both terms have variables
+            let exp = term1.exp + term2.exp;
             
             resultTerms.push({
                 coeff: coeff,
                 exp: exp,
-                hasVar: term1.hasVar || term2.hasVar
+                hasVar: exp !== 0
             });
         }
     }
@@ -43,7 +34,7 @@ function PolynomialExpansion(str) {
     const combined = {};
     for (const term of resultTerms) {
         const key = term.exp;
-        if (combined[key]) {
+        if (combined[key] !== undefined) {
             combined[key] += term.coeff;
         } else {
             combined[key] = term.coeff;
@@ -74,17 +65,18 @@ function parsePolynomial(polyStr) {
     let current = '';
     const variable = polyStr.match(/[a-z]/i)?.[0] || 'x';
     
-    for (let i = 0; i <= polyStr.length; i++) {
-        const char = polyStr[i];
-        
-        // End of term or end of string
-        if (i === polyStr.length || (['+', '-'].includes(char) && i > 0)) {
-            if (current) {
-                terms.push(parseTerm(current, variable));
-            }
-            current = char === '-' ? '-' : '';
-        } else {
-            current += char;
+    // Add explicit + for easier parsing
+    let modifiedStr = polyStr;
+    if (modifiedStr[0] !== '-') {
+        modifiedStr = '+' + modifiedStr;
+    }
+    
+    // Split by + and - while keeping the signs
+    const termMatches = modifiedStr.match(/[+-][^+-]*/g) || [];
+    
+    for (const match of termMatches) {
+        if (match) {
+            terms.push(parseTerm(match, variable));
         }
     }
     
@@ -92,39 +84,45 @@ function parsePolynomial(polyStr) {
 }
 
 function parseTerm(termStr, variable) {
-    // Handle special cases
+    // Handle standalone signs
     if (termStr === '+') return { coeff: 1, exp: 0, hasVar: false };
     if (termStr === '-') return { coeff: -1, exp: 0, hasVar: false };
     
-    // Find coefficient
-    let coeffStr = '';
-    let i = 0;
+    // Extract the sign
+    const sign = termStr[0] === '-' ? -1 : 1;
+    const content = termStr.slice(1);
     
-    // Parse coefficient with sign
-    while (i < termStr.length && (termStr[i] === '+' || termStr[i] === '-' || 
-           (termStr[i] >= '0' && termStr[i] <= '9'))) {
-        coeffStr += termStr[i];
-        i++;
+    if (content === '') {
+        return { coeff: sign, exp: 0, hasVar: false };
     }
     
-    let coeff;
-    if (coeffStr === '+' || coeffStr === '') {
-        coeff = 1;
-    } else if (coeffStr === '-') {
-        coeff = -1;
+    // Check if term contains the variable
+    const varIndex = content.indexOf(variable);
+    const hasVar = varIndex !== -1;
+    
+    let coeff, exp;
+    
+    if (!hasVar) {
+        // Constant term
+        coeff = sign * parseInt(content);
+        exp = 0;
     } else {
-        coeff = parseInt(coeffStr);
-    }
-    
-    // Check if variable exists
-    const hasVar = termStr.includes(variable);
-    
-    // Parse exponent
-    let exp = 0;
-    if (hasVar) {
-        const caretIndex = termStr.indexOf('^');
-        if (caretIndex !== -1) {
-            exp = parseInt(termStr.slice(caretIndex + 1));
+        // Term with variable
+        const beforeVar = content.slice(0, varIndex);
+        const afterVar = content.slice(varIndex + 1);
+        
+        // Parse coefficient
+        if (beforeVar === '') {
+            coeff = sign * 1;
+        } else {
+            coeff = sign * parseInt(beforeVar);
+        }
+        
+        // Parse exponent
+        if (afterVar === '') {
+            exp = 1;
+        } else if (afterVar[0] === '^') {
+            exp = parseInt(afterVar.slice(1));
         } else {
             exp = 1;
         }
@@ -142,17 +140,25 @@ function formatTerms(terms) {
         let termStr = '';
         
         // Handle coefficient
-        if (term.coeff === 1 && term.hasVar) {
-            termStr = '';
-        } else if (term.coeff === -1 && term.hasVar) {
-            termStr = '-';
+        if (term.coeff === 1) {
+            termStr = term.hasVar ? '' : '1';
+        } else if (term.coeff === -1) {
+            termStr = term.hasVar ? '-' : '-1';
         } else {
             termStr = term.coeff.toString();
         }
         
         // Handle variable and exponent
         if (term.hasVar) {
-            termStr += 'x';
+            // Special case: if coefficient was ±1 and we have variable
+            if ((term.coeff === 1 || term.coeff === -1) && termStr === '') {
+                termStr = 'x';
+            } else if ((term.coeff === 1 || term.coeff === -1) && termStr === '-') {
+                termStr = '-x';
+            } else {
+                termStr += 'x';
+            }
+            
             if (term.exp !== 1) {
                 termStr += '^' + term.exp;
             }
