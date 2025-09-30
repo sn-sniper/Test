@@ -1,176 +1,160 @@
 function PolynomialExpansion(str) {
-    // Remove spaces and split into two factors
-    const cleanStr = str.replace(/\s/g, '');
-    const factors = cleanStr.match(/\(([^)]+)\)/g);
+    // Remove spaces
+    str = str.replace(/\s/g, '');
     
-    if (!factors || factors.length !== 2) {
-        throw new Error("Invalid input format");
-    }
+    // Extract the two factors
+    const match = str.match(/\(([^)]+)\)\(([^)]+)\)/);
+    if (!match) return "Invalid format";
     
-    // Parse both polynomials
-    const poly1 = parsePolynomial(factors[0].slice(1, -1));
-    const poly2 = parsePolynomial(factors[1].slice(1, -1));
+    const poly1 = match[1];
+    const poly2 = match[2];
     
-    // Multiply polynomials
-    const resultTerms = [];
+    // Get the variable (x, y, etc.)
+    const variable = str.match(/[a-z]/i)[0];
     
-    for (const term1 of poly1) {
-        for (const term2 of poly2) {
-            // Multiply coefficients
-            const coeff = term1.coeff * term2.coeff;
-            
-            // Handle exponents - both terms have variables
-            let exp = term1.exp + term2.exp;
-            
-            resultTerms.push({
-                coeff: coeff,
-                exp: exp,
-                hasVar: exp !== 0
-            });
+    // Parse polynomials into terms
+    const terms1 = parsePoly(poly1, variable);
+    const terms2 = parsePoly(poly2, variable);
+    
+    // Multiply all terms
+    const products = [];
+    for (const t1 of terms1) {
+        for (const t2 of terms2) {
+            const coeff = t1.coeff * t2.coeff;
+            const exp = t1.exp + t2.exp;
+            products.push({ coeff, exp });
         }
     }
     
     // Combine like terms
     const combined = {};
-    for (const term of resultTerms) {
-        const key = term.exp;
-        if (combined[key] !== undefined) {
-            combined[key] += term.coeff;
+    for (const term of products) {
+        if (combined[term.exp] === undefined) {
+            combined[term.exp] = term.coeff;
         } else {
-            combined[key] = term.coeff;
+            combined[term.exp] += term.coeff;
         }
     }
     
-    // Convert back to term objects and filter out zero coefficients
+    // Convert to array and sort by exponent descending
     const finalTerms = [];
-    for (const [exp, coeff] of Object.entries(combined)) {
-        if (coeff !== 0) {
-            finalTerms.push({
-                coeff: coeff,
-                exp: parseInt(exp),
-                hasVar: parseInt(exp) !== 0
-            });
+    for (const exp in combined) {
+        if (combined[exp] !== 0) {
+            finalTerms.push({ coeff: combined[exp], exp: parseInt(exp) });
         }
     }
-    
-    // Sort by exponent descending
     finalTerms.sort((a, b) => b.exp - a.exp);
     
-    // Format output
-    return formatTerms(finalTerms);
+    // Format the result
+    return formatResult(finalTerms, variable);
 }
 
-function parsePolynomial(polyStr) {
+function parsePoly(polyStr, variable) {
     const terms = [];
-    let current = '';
-    const variable = polyStr.match(/[a-z]/i)?.[0] || 'x';
     
-    // Add explicit + for easier parsing
-    let modifiedStr = polyStr;
-    if (modifiedStr[0] !== '-') {
-        modifiedStr = '+' + modifiedStr;
+    // Add leading + if needed for easier parsing
+    let str = polyStr;
+    if (str[0] !== '+' && str[0] !== '-') {
+        str = '+' + str;
     }
     
-    // Split by + and - while keeping the signs
-    const termMatches = modifiedStr.match(/[+-][^+-]*/g) || [];
+    // Split into terms while preserving signs
+    const termStrs = str.match(/[+-][^+-]+/g) || [];
     
-    for (const match of termMatches) {
-        if (match) {
-            terms.push(parseTerm(match, variable));
-        }
+    for (const termStr of termStrs) {
+        const term = parseTerm(termStr, variable);
+        terms.push(term);
     }
     
     return terms;
 }
 
 function parseTerm(termStr, variable) {
-    // Handle standalone signs
-    if (termStr === '+') return { coeff: 1, exp: 0, hasVar: false };
-    if (termStr === '-') return { coeff: -1, exp: 0, hasVar: false };
-    
-    // Extract the sign
     const sign = termStr[0] === '-' ? -1 : 1;
-    const content = termStr.slice(1);
+    let content = termStr.slice(1);
     
-    if (content === '') {
-        return { coeff: sign, exp: 0, hasVar: false };
-    }
+    // Handle special cases
+    if (content === '') return { coeff: sign, exp: 0 };
     
-    // Check if term contains the variable
+    // Check if term has variable
     const varIndex = content.indexOf(variable);
-    const hasVar = varIndex !== -1;
     
-    let coeff, exp;
-    
-    if (!hasVar) {
+    if (varIndex === -1) {
         // Constant term
-        coeff = sign * parseInt(content);
-        exp = 0;
-    } else {
-        // Term with variable
-        const beforeVar = content.slice(0, varIndex);
-        const afterVar = content.slice(varIndex + 1);
-        
-        // Parse coefficient
-        if (beforeVar === '') {
-            coeff = sign * 1;
-        } else {
-            coeff = sign * parseInt(beforeVar);
-        }
-        
-        // Parse exponent
-        if (afterVar === '') {
-            exp = 1;
-        } else if (afterVar[0] === '^') {
-            exp = parseInt(afterVar.slice(1));
-        } else {
-            exp = 1;
-        }
+        return { coeff: sign * parseInt(content), exp: 0 };
     }
     
-    return { coeff, exp, hasVar };
+    // Term with variable - split into coefficient and exponent parts
+    let coeffPart = content.slice(0, varIndex);
+    let expPart = content.slice(varIndex + 1);
+    
+    // Parse coefficient
+    let coeff;
+    if (coeffPart === '') {
+        coeff = 1;
+    } else {
+        coeff = parseInt(coeffPart);
+    }
+    
+    // Parse exponent
+    let exp;
+    if (expPart === '') {
+        exp = 1;
+    } else if (expPart[0] === '^') {
+        exp = parseInt(expPart.slice(1));
+    } else {
+        exp = 1;
+    }
+    
+    return { coeff: sign * coeff, exp: exp };
 }
 
-function formatTerms(terms) {
+function formatResult(terms, variable) {
     if (terms.length === 0) return "0";
     
-    const result = [];
+    const parts = [];
     
-    for (const term of terms) {
-        let termStr = '';
+    for (let i = 0; i < terms.length; i++) {
+        const term = terms[i];
+        let part = '';
         
         // Handle coefficient
         if (term.coeff === 1) {
-            termStr = term.hasVar ? '' : '1';
+            if (term.exp === 0) {
+                part = '1';
+            } else {
+                part = '';
+            }
         } else if (term.coeff === -1) {
-            termStr = term.hasVar ? '-' : '-1';
+            if (term.exp === 0) {
+                part = '-1';
+            } else {
+                part = '-';
+            }
         } else {
-            termStr = term.coeff.toString();
+            part = term.coeff.toString();
         }
         
         // Handle variable and exponent
-        if (term.hasVar) {
-            // Special case: if coefficient was ±1 and we have variable
-            if ((term.coeff === 1 || term.coeff === -1) && termStr === '') {
-                termStr = 'x';
-            } else if ((term.coeff === 1 || term.coeff === -1) && termStr === '-') {
-                termStr = '-x';
-            } else {
-                termStr += 'x';
-            }
-            
+        if (term.exp !== 0) {
+            part += variable;
             if (term.exp !== 1) {
-                termStr += '^' + term.exp;
+                part += '^' + term.exp;
             }
         }
         
-        // Add sign for positive terms (except first term)
-        if (term.coeff > 0 && result.length > 0) {
-            termStr = '+' + termStr;
+        // Handle sign for non-first terms
+        if (i > 0 && term.coeff > 0) {
+            part = '+' + part;
         }
         
-        result.push(termStr);
+        parts.push(part);
     }
     
-    return result.join('');
+    return parts.join('');
 }
+
+// Test cases
+console.log(PolynomialExpansion("(1x)(2x^-2+1)"));    // Should be: "x+2x^-1"
+console.log(PolynomialExpansion("(-1x^3)(3x^3+2)"));  // Should be: "-3x^6-2x^3"
+console.log(PolynomialExpansion("(2x^2+4)(6x^3+3)")); // Should be: "12x^5+24x^3+6x^2+12"
