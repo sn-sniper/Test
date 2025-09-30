@@ -16,6 +16,9 @@ function PolynomialExpansion(str) {
     const terms1 = parsePoly(poly1, variable);
     const terms2 = parsePoly(poly2, variable);
     
+    console.log("Poly1 terms:", terms1);
+    console.log("Poly2 terms:", terms2);
+    
     // Multiply all terms
     const products = [];
     for (const t1 of terms1) {
@@ -76,45 +79,42 @@ function parseTerm(termStr, variable) {
     // Handle special cases
     if (content === '') return { coeff: sign, exp: 0 };
     
-    // Check if term has variable
-    const varIndex = content.indexOf(variable);
+    // Use regex to parse the entire term
+    // Patterns: 
+    // - "2x^-2" -> coefficient: 2, exponent: -2
+    // - "x" -> coefficient: 1, exponent: 1  
+    // - "2x" -> coefficient: 2, exponent: 1
+    // - "2" -> coefficient: 2, exponent: 0
+    // - "x^3" -> coefficient: 1, exponent: 3
     
-    if (varIndex === -1) {
-        // Constant term
+    const pattern = new RegExp(`^(\\d*)${variable}(\\^([-+]?\\d+))?$|^(\\d+)$`);
+    const match = content.match(pattern);
+    
+    if (!match) {
+        // If no match, try simpler patterns
+        if (content === variable) {
+            return { coeff: sign * 1, exp: 1 };
+        }
         return { coeff: sign * parseInt(content), exp: 0 };
     }
     
-    // Term with variable - split into coefficient and exponent parts
-    let coeffPart = content.slice(0, varIndex);
-    let expPart = content.slice(varIndex + 1);
+    let coeff, exp;
     
-    // Parse coefficient
-    let coeff;
-    if (coeffPart === '') {
-        coeff = 1;
+    if (match[4]) {
+        // Constant term like "2", "45"
+        coeff = parseInt(match[4]);
+        exp = 0;
     } else {
-        coeff = parseInt(coeffPart);
-    }
-    
-    // Parse exponent - FIXED: Handle negative exponents
-    let exp;
-    if (expPart === '') {
-        exp = 1;
-    } else if (expPart[0] === '^') {
-        // Use parseInt directly which handles negative numbers
-        exp = parseInt(expPart.slice(1));
-        // If parsing fails (returns NaN), try to handle the negative case
-        if (isNaN(exp)) {
-            // Handle cases like x^-2
-            const expMatch = expPart.match(/\^(-?\d+)/);
-            if (expMatch) {
-                exp = parseInt(expMatch[1]);
-            } else {
-                exp = 1;
-            }
+        // Variable term
+        coeff = match[1] === '' ? 1 : parseInt(match[1]);
+        
+        if (match[3]) {
+            // Has exponent like x^3 or x^-2
+            exp = parseInt(match[3]);
+        } else {
+            // No exponent, default to 1
+            exp = 1;
         }
-    } else {
-        exp = 1;
     }
     
     return { coeff: sign * coeff, exp: exp };
@@ -148,13 +148,7 @@ function formatResult(terms, variable) {
         
         // Handle variable and exponent
         if (term.exp !== 0) {
-            // If part is empty (coefficient was ±1) or has just a minus sign
-            if (part === '' || part === '-') {
-                part += variable;
-            } else {
-                part += variable;
-            }
-            
+            part += variable;
             if (term.exp !== 1) {
                 part += '^' + term.exp;
             }
@@ -171,8 +165,7 @@ function formatResult(terms, variable) {
     return parts.join('');
 }
 
-// Test the specific problematic case
-console.log("Testing (1x)(2x^-2+1):");
-console.log(PolynomialExpansion("(1x)(2x^-2+1)"));    // Should be: "x+2x^-1"    // Should be: "x+2x^-1"
-console.log(PolynomialExpansion("(-1x^3)(3x^3+2)"));  // Should be: "-3x^6-2x^3"
-console.log(PolynomialExpansion("(2x^2+4)(6x^3+3)")); // Should be: "12x^5+24x^3+6x^2+12"
+// Test cases
+console.log("Test 1:", PolynomialExpansion("(1x)(2x^-2+1)"));    // Should be: "x+2x^-1"
+console.log("Test 2:", PolynomialExpansion("(-1x^3)(3x^3+2)"));  // Should be: "-3x^6-2x^3"
+console.log("Test 3:", PolynomialExpansion("(2x^2+4)(6x^3+3)")); // Should be: "12x^5+24x^3+6x^2+12"
