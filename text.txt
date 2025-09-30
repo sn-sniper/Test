@@ -1,0 +1,170 @@
+function PolynomialExpansion(str) {
+    // Remove spaces and split into two factors
+    const cleanStr = str.replace(/\s/g, '');
+    const factors = cleanStr.match(/\(([^)]+)\)/g);
+    
+    if (!factors || factors.length !== 2) {
+        throw new Error("Invalid input format");
+    }
+    
+    // Parse both polynomials
+    const poly1 = parsePolynomial(factors[0].slice(1, -1));
+    const poly2 = parsePolynomial(factors[1].slice(1, -1));
+    
+    // Multiply polynomials
+    const resultTerms = [];
+    
+    for (const term1 of poly1) {
+        for (const term2 of poly2) {
+            // Multiply coefficients
+            const coeff = term1.coeff * term2.coeff;
+            
+            // Handle exponents
+            let exp;
+            if (term1.hasVar && term2.hasVar) {
+                exp = term1.exp + term2.exp;
+            } else if (term1.hasVar) {
+                exp = term1.exp;
+            } else if (term2.hasVar) {
+                exp = term2.exp;
+            } else {
+                exp = 0;
+            }
+            
+            resultTerms.push({
+                coeff: coeff,
+                exp: exp,
+                hasVar: term1.hasVar || term2.hasVar
+            });
+        }
+    }
+    
+    // Combine like terms
+    const combined = {};
+    for (const term of resultTerms) {
+        const key = term.exp;
+        if (combined[key]) {
+            combined[key] += term.coeff;
+        } else {
+            combined[key] = term.coeff;
+        }
+    }
+    
+    // Convert back to term objects and filter out zero coefficients
+    const finalTerms = [];
+    for (const [exp, coeff] of Object.entries(combined)) {
+        if (coeff !== 0) {
+            finalTerms.push({
+                coeff: coeff,
+                exp: parseInt(exp),
+                hasVar: parseInt(exp) !== 0
+            });
+        }
+    }
+    
+    // Sort by exponent descending
+    finalTerms.sort((a, b) => b.exp - a.exp);
+    
+    // Format output
+    return formatTerms(finalTerms);
+}
+
+function parsePolynomial(polyStr) {
+    const terms = [];
+    let current = '';
+    const variable = polyStr.match(/[a-z]/i)?.[0] || 'x';
+    
+    for (let i = 0; i <= polyStr.length; i++) {
+        const char = polyStr[i];
+        
+        // End of term or end of string
+        if (i === polyStr.length || (['+', '-'].includes(char) && i > 0)) {
+            if (current) {
+                terms.push(parseTerm(current, variable));
+            }
+            current = char === '-' ? '-' : '';
+        } else {
+            current += char;
+        }
+    }
+    
+    return terms;
+}
+
+function parseTerm(termStr, variable) {
+    // Handle special cases
+    if (termStr === '+') return { coeff: 1, exp: 0, hasVar: false };
+    if (termStr === '-') return { coeff: -1, exp: 0, hasVar: false };
+    
+    // Find coefficient
+    let coeffStr = '';
+    let i = 0;
+    
+    // Parse coefficient with sign
+    while (i < termStr.length && (termStr[i] === '+' || termStr[i] === '-' || 
+           (termStr[i] >= '0' && termStr[i] <= '9'))) {
+        coeffStr += termStr[i];
+        i++;
+    }
+    
+    let coeff;
+    if (coeffStr === '+' || coeffStr === '') {
+        coeff = 1;
+    } else if (coeffStr === '-') {
+        coeff = -1;
+    } else {
+        coeff = parseInt(coeffStr);
+    }
+    
+    // Check if variable exists
+    const hasVar = termStr.includes(variable);
+    
+    // Parse exponent
+    let exp = 0;
+    if (hasVar) {
+        const caretIndex = termStr.indexOf('^');
+        if (caretIndex !== -1) {
+            exp = parseInt(termStr.slice(caretIndex + 1));
+        } else {
+            exp = 1;
+        }
+    }
+    
+    return { coeff, exp, hasVar };
+}
+
+function formatTerms(terms) {
+    if (terms.length === 0) return "0";
+    
+    const result = [];
+    
+    for (const term of terms) {
+        let termStr = '';
+        
+        // Handle coefficient
+        if (term.coeff === 1 && term.hasVar) {
+            termStr = '';
+        } else if (term.coeff === -1 && term.hasVar) {
+            termStr = '-';
+        } else {
+            termStr = term.coeff.toString();
+        }
+        
+        // Handle variable and exponent
+        if (term.hasVar) {
+            termStr += 'x';
+            if (term.exp !== 1) {
+                termStr += '^' + term.exp;
+            }
+        }
+        
+        // Add sign for positive terms (except first term)
+        if (term.coeff > 0 && result.length > 0) {
+            termStr = '+' + termStr;
+        }
+        
+        result.push(termStr);
+    }
+    
+    return result.join('');
+}
