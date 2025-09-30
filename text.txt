@@ -16,9 +16,6 @@ function PolynomialExpansion(str) {
     const terms1 = parsePoly(poly1, variable);
     const terms2 = parsePoly(poly2, variable);
     
-    console.log("Poly1 terms:", terms1);
-    console.log("Poly2 terms:", terms2);
-    
     // Multiply all terms
     const products = [];
     for (const t1 of terms1) {
@@ -77,42 +74,28 @@ function parseTerm(termStr, variable) {
     let content = termStr.slice(1);
     
     // Handle special cases
-    if (content === '') return { coeff: sign, exp: 0 };
+    if (content === '') return { coeff: sign * 1, exp: 0 };
     
-    // Use regex to parse the entire term
-    // Patterns: 
-    // - "2x^-2" -> coefficient: 2, exponent: -2
-    // - "x" -> coefficient: 1, exponent: 1  
-    // - "2x" -> coefficient: 2, exponent: 1
-    // - "2" -> coefficient: 2, exponent: 0
-    // - "x^3" -> coefficient: 1, exponent: 3
-    
-    const pattern = new RegExp(`^(\\d*)${variable}(\\^([-+]?\\d+))?$|^(\\d+)$`);
+    const pattern = new RegExp(`^([0-9]*\\.?[0-9]*)${variable}(\\^([-+]?[0-9]+))?$`);
     const match = content.match(pattern);
-    
-    if (!match) {
-        // If no match, try simpler patterns
-        if (content === variable) {
-            return { coeff: sign * 1, exp: 1 };
+    if(!match){
+        if(content === variable){
+            return {coeff: sign * 1, exp: 1};
         }
-        return { coeff: sign * parseInt(content), exp: 0 };
+        return {coeff: sign * parseInt(content), exp: 0};
     }
     
     let coeff, exp;
     
-    if (match[4]) {
-        // Constant term like "2", "45"
-        coeff = parseInt(match[4]);
-        exp = 0;
+    if (match[4]){
+        coeff = parseInt(match[4])
+        exp = 0
     } else {
-        // Variable term
         coeff = match[1] === '' ? 1 : parseInt(match[1]);
         
-        if (match[3]) {
-            // Has exponent like x^3 or x^-2
-            exp = parseInt(match[3]);
-        } else {
-            // No exponent, default to 1
+        if (match[3]){
+            exp = parseInt(match[3])
+        } else{
             exp = 1;
         }
     }
@@ -148,7 +131,13 @@ function formatResult(terms, variable) {
         
         // Handle variable and exponent
         if (term.exp !== 0) {
-            part += variable;
+            // If part is empty (coefficQient was ±1) or has just a minus sign
+            if (part === '' || part === '-') {
+                part += variable;
+            } else {
+                part += variable;
+            }
+            
             if (term.exp !== 1) {
                 part += '^' + term.exp;
             }
@@ -165,7 +154,5 @@ function formatResult(terms, variable) {
     return parts.join('');
 }
 
-// Test cases
-console.log("Test 1:", PolynomialExpansion("(1x)(2x^-2+1)"));    // Should be: "x+2x^-1"
-console.log("Test 2:", PolynomialExpansion("(-1x^3)(3x^3+2)"));  // Should be: "-3x^6-2x^3"
-console.log("Test 3:", PolynomialExpansion("(2x^2+4)(6x^3+3)")); // Should be: "12x^5+24x^3+6x^2+12"
+
+console.log(PolynomialExpansion(readline()));
