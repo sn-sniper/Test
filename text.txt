@@ -1,1 +1,31 @@
-https://76092dc6-f6b2-4bf6-a319-2af54b2b0443-00-22d2z9jit3aud.kirk.replit.dev/
+import pyautogui
+import time
+
+def run_ducky_script(file_path):
+    with open(file_path, "r") as f:
+        lines = f.readlines()
+
+    for line in lines:
+        line = line.strip()
+
+        if line.startswith("DELAY"):
+            delay_time = int(line.split()[1]) / 1000
+            time.sleep(delay_time)
+
+        elif line == "ENTER":
+            pyautogui.press("enter")
+
+        elif line.startswith("STRING"):
+            text = line.replace("STRING ", "", 1)
+            pyautogui.write(text, interval=0.02)
+
+        elif line == "GUI r":
+            pyautogui.hotkey("win", "r")
+
+        else:
+            print(f"[!] Unknown command: {line}")
+
+if __name__ == "__main__":
+    print("BadUSB Simulation starting in 3 seconds...")
+    time.sleep(3)
+    run_ducky_script("duckyscript.txt")
